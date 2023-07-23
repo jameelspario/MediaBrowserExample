@@ -1,36 +1,21 @@
-/*
- * Copyright 2017 The Android Open Source Project
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package com.example.medialservice.service.players;
 
 import android.content.Context;
 import android.content.res.AssetFileDescriptor;
 import android.media.MediaPlayer;
+import android.net.Uri;
+import android.os.Bundle;
 import android.os.SystemClock;
 import android.support.v4.media.MediaMetadataCompat;
 import android.support.v4.media.session.PlaybackStateCompat;
-import android.util.Log;
 
 import com.example.medialservice.service.PlaybackInfoListener;
 import com.example.medialservice.service.PlayerAdapter;
-import com.example.medialservice.service.contentcatalogs.MusicLibrary;
+import com.example.medialservice.service.contentcatalogs.Utils;
 
 /**
  * Exposes the functionality of the {@link MediaPlayer} and implements the {@link PlayerAdapter}
- * so that {@link MainActivity} can control music playback.
+ * so that {@link } can control music playback.
  */
 public final class MediaPlayerAdapter extends PlayerAdapter {
 
@@ -42,7 +27,7 @@ public final class MediaPlayerAdapter extends PlayerAdapter {
     private int mState;
     private boolean mCurrentMediaPlayedToCompletion;
 
-    // Work-around for a MediaPlayer bug related to the behavior of MediaPlayer.seekTo()
+    // Work-around for a MediaPlayer bug related to the behavior of MediaPlayer.seekTo.()
     // while not playing.
     private int mSeekWhileNotPlaying = -1;
 
@@ -54,8 +39,8 @@ public final class MediaPlayerAdapter extends PlayerAdapter {
 
     /**
      * Once the {@link MediaPlayer} is released, it can't be used again, and another one has to be
-     * created. In the onStop() method of the {@link MainActivity} the {@link MediaPlayer} is
-     * released. Then in the onStart() of the {@link MainActivity} a new {@link MediaPlayer}
+     * created. In the onStop() method of the {@link } the {@link MediaPlayer} is
+     * released. Then in the onStart() of the {@link } a new {@link MediaPlayer}
      * object has to be created. That's why this method is private, and called by load(int) and
      * not the constructor.
      */
@@ -82,8 +67,9 @@ public final class MediaPlayerAdapter extends PlayerAdapter {
     @Override
     public void playFromMedia(MediaMetadataCompat metadata) {
         mCurrentMedia = metadata;
+        Utils.loge("MediaAdapter", "playFromMedia", ""+metadata.getString(MediaMetadataCompat.METADATA_KEY_ALBUM_ART_URI));
         final String mediaId = metadata.getDescription().getMediaId();
-        playFile(MusicLibrary.getMusicFilename(mediaId));
+        playFile(mediaId);
     }
 
     @Override
@@ -91,8 +77,9 @@ public final class MediaPlayerAdapter extends PlayerAdapter {
         return mCurrentMedia;
     }
 
-    private void playFile(String filename) {
-        boolean mediaChanged = (mFilename == null || !filename.equals(mFilename));
+    private void playFile(String mediaId) {
+        Utils.loge("MediaAdapter", "playFile", ""+mediaId);
+        boolean mediaChanged = (mFilename == null || !mediaId.equals(mFilename));
         if (mCurrentMediaPlayedToCompletion) {
             // Last audio file was played to completion, the resourceId hasn't changed, but the
             // player was released, so force a reload of the media file for playback.
@@ -108,16 +95,20 @@ public final class MediaPlayerAdapter extends PlayerAdapter {
             release();
         }
 
-        mFilename = filename;
+        mFilename = mediaId;
 
         initializeMediaPlayer();
 
         try {
-            AssetFileDescriptor assetFileDescriptor = mContext.getAssets().openFd(mFilename);
+           /* AssetFileDescriptor assetFileDescriptor = mContext.getAssets().openFd(mFilename);
             mMediaPlayer.setDataSource(
                     assetFileDescriptor.getFileDescriptor(),
                     assetFileDescriptor.getStartOffset(),
-                    assetFileDescriptor.getLength());
+                    assetFileDescriptor.getLength());*/
+
+            String uri = mCurrentMedia.getString(MediaMetadataCompat.METADATA_KEY_ALBUM_ART_URI);
+            mMediaPlayer.setDataSource(mContext, Uri.parse(uri));
+
         } catch (Exception e) {
             throw new RuntimeException("Failed to open file: " + mFilename, e);
         }
@@ -195,6 +186,14 @@ public final class MediaPlayerAdapter extends PlayerAdapter {
                               reportPosition,
                               1.0f,
                               SystemClock.elapsedRealtime());
+
+        Bundle bundle = new Bundle();
+        bundle.putString("id", mCurrentMedia.getString(MediaMetadataCompat.METADATA_KEY_MEDIA_ID));
+        bundle.putString("title", mCurrentMedia.getString(MediaMetadataCompat.METADATA_KEY_TITLE));
+        bundle.putString("subtitle", mCurrentMedia.getString(MediaMetadataCompat.METADATA_KEY_ALBUM));
+        bundle.putString("uri", mCurrentMedia.getString(MediaMetadataCompat.METADATA_KEY_ALBUM_ART_URI));
+//        bundle.putInt("duration", mediaPlayer!!.duration);
+        stateBuilder.setExtras(bundle);
         mPlaybackInfoListener.onPlaybackStateChange(stateBuilder.build());
     }
 

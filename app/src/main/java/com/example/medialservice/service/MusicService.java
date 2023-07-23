@@ -1,19 +1,3 @@
-/*
- * Copyright 2017 The Android Open Source Project
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package com.example.medialservice.service;
 
 import android.app.Notification;
@@ -30,12 +14,15 @@ import androidx.annotation.NonNull;
 import androidx.core.content.ContextCompat;
 import androidx.media.MediaBrowserServiceCompat;
 
-import com.example.medialservice.service.contentcatalogs.MusicLibrary;
+import com.example.medialservice.service.contentcatalogs.AudioRepository;
+import com.example.medialservice.service.contentcatalogs.Utils;
 import com.example.medialservice.service.notifications.MediaNotificationManager;
 import com.example.medialservice.service.players.MediaPlayerAdapter;
+import com.example.medialservice.ui.Audio;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 public class MusicService extends MediaBrowserServiceCompat {
 
@@ -46,19 +33,22 @@ public class MusicService extends MediaBrowserServiceCompat {
     private MediaNotificationManager mMediaNotificationManager;
     private MediaSessionCallback mCallback;
     private boolean mServiceInStartedState;
+    private AudioRepository audioRepository;
+    List<MediaBrowserCompat.MediaItem> mediaItems;
+
 
     @Override
     public void onCreate() {
         super.onCreate();
-
+        audioRepository = new AudioRepository(getApplication());
         // Create a new MediaSession.
         mSession = new MediaSessionCompat(this, "MusicService");
         mCallback = new MediaSessionCallback();
         mSession.setCallback(mCallback);
         mSession.setFlags(
                 MediaSessionCompat.FLAG_HANDLES_MEDIA_BUTTONS |
-                MediaSessionCompat.FLAG_HANDLES_QUEUE_COMMANDS |
-                MediaSessionCompat.FLAG_HANDLES_TRANSPORT_CONTROLS);
+                        MediaSessionCompat.FLAG_HANDLES_QUEUE_COMMANDS |
+                        MediaSessionCompat.FLAG_HANDLES_TRANSPORT_CONTROLS);
         setSessionToken(mSession.getSessionToken());
 
         mMediaNotificationManager = new MediaNotificationManager(this);
@@ -85,64 +75,127 @@ public class MusicService extends MediaBrowserServiceCompat {
     public BrowserRoot onGetRoot(@NonNull String clientPackageName,
                                  int clientUid,
                                  Bundle rootHints) {
-        return new BrowserRoot(MusicLibrary.getRoot(), null);
+        return new BrowserRoot(Utils.ROOT, null);
     }
 
     @Override
     public void onLoadChildren(
-            @NonNull final String parentMediaId,
+            @NonNull final String parentId,
             @NonNull final Result<List<MediaBrowserCompat.MediaItem>> result) {
-        result.sendResult(MusicLibrary.getMediaItems());
+//        result.sendResult(MusicLibrary.getMediaItems());
+        Utils.loge("onLoadChildren", parentId);
+        if (Utils.ROOT.equals(parentId)) {
+            try {
+
+                mediaItems = new ArrayList<>();
+                for (Audio it : audioRepository.listAudioFiles()) {
+                    MediaDescriptionCompat.Builder mediaDescriptionBuilder = new MediaDescriptionCompat.Builder()
+                            .setMediaId(it.id)
+                            .setMediaUri(it.uri)
+                            .setTitle(it.name)
+                            .setSubtitle(it.artist);
+                    mediaItems.add(new MediaBrowserCompat.MediaItem(mediaDescriptionBuilder.build(), 0));
+                }
+                result.sendResult(mediaItems);
+
+            } catch (Exception e) {
+                result.sendResult(null);
+            }
+        } else {
+            result.sendResult(null);
+        }
     }
 
     // MediaSession Callback: Transport Controls -> MediaPlayerAdapter
     public class MediaSessionCallback extends MediaSessionCompat.Callback {
-        private final List<MediaSessionCompat.QueueItem> mPlaylist = new ArrayList<>();
+        //        private final List<MediaSessionCompat.QueueItem> mPlaylist = new ArrayList<>();
+        private final List<MediaSessionCompat.QueueItem> queueItems = new ArrayList<>();
         private int mQueueIndex = -1;
+        private int activeQueueItemId = -1;
+        private MediaBrowserCompat.MediaItem nowPlaying = null;
         private MediaMetadataCompat mPreparedMedia;
 
         @Override
         public void onAddQueueItem(MediaDescriptionCompat description) {
-            mPlaylist.add(new MediaSessionCompat.QueueItem(description, description.hashCode()));
-            mQueueIndex = (mQueueIndex == -1) ? 0 : mQueueIndex;
-            mSession.setQueue(mPlaylist);
+            queueItems.add(new MediaSessionCompat.QueueItem(description, description.hashCode()));
+//            mQueueIndex = (mQueueIndex == -1) ? 0 : mQueueIndex;
+            mSession.setQueue(queueItems);
         }
 
         @Override
         public void onRemoveQueueItem(MediaDescriptionCompat description) {
-            mPlaylist.remove(new MediaSessionCompat.QueueItem(description, description.hashCode()));
-            mQueueIndex = (mPlaylist.isEmpty()) ? -1 : mQueueIndex;
-            mSession.setQueue(mPlaylist);
+//            mPlaylist.remove(new MediaSessionCompat.QueueItem(description, description.hashCode()));
+//            mQueueIndex = (mPlaylist.isEmpty()) ? -1 : mQueueIndex;
+//            mSession.setQueue(mPlaylist);
         }
 
         @Override
         public void onPrepare() {
-            if (mQueueIndex < 0 && mPlaylist.isEmpty()) {
-                // Nothing to play.
-                return;
-            }
+//            if (mQueueIndex < 0 && mPlaylist.isEmpty()) {
+            // Nothing to play.
+//                return;
+//            }
 
-            final String mediaId = mPlaylist.get(mQueueIndex).getDescription().getMediaId();
+            /*final String mediaId = mPlaylist.get(mQueueIndex).getDescription().getMediaId();
             mPreparedMedia = MusicLibrary.getMetadata(MusicService.this, mediaId);
             mSession.setMetadata(mPreparedMedia);
 
+
+             */
             if (!mSession.isActive()) {
                 mSession.setActive(true);
             }
+
+        }
+
+        @Override
+        public void onPlayFromMediaId(String mediaId, Bundle extras) {
+            super.onPlayFromMediaId(mediaId, extras);
+            Utils.loge(TAG, "onPlayFromMediaId", "" + mediaId);
+
+            //
+            MediaBrowserCompat.MediaItem item = findMediaItemById(mediaId);
+            if (item != null) {
+                mPreparedMedia = new MediaMetadataCompat.Builder()
+                        .putString(MediaMetadataCompat.METADATA_KEY_MEDIA_ID, mediaId)
+                        .putString(MediaMetadataCompat.METADATA_KEY_ALBUM, item.getDescription().getSubtitle().toString())
+                        .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, item.getDescription().getSubtitle().toString())
+//                        .putLong(MediaMetadataCompat.METADATA_KEY_DURATION, TimeUnit.MILLISECONDS.convert(duration, durationUnit))
+//                        .putString(MediaMetadataCompat.METADATA_KEY_GENRE, genre)
+                        .putString(MediaMetadataCompat.METADATA_KEY_ALBUM_ART_URI, item.getDescription().getMediaUri().toString())
+//                        .putString(MediaMetadataCompat.METADATA_KEY_DISPLAY_ICON_URI, getAlbumArtUri(albumArtResName))
+                        .putString(MediaMetadataCompat.METADATA_KEY_TITLE, item.getDescription().getTitle().toString())
+                        .build();
+
+                mPlayback.playFromMedia(mPreparedMedia);
+                nowPlaying = item;
+                activeQueueItemId = -1;
+                for (int i = 0; i < queueItems.size(); i++) {
+                    MediaSessionCompat.QueueItem it = queueItems.get(i);
+                    if (Objects.equals(nowPlaying.getMediaId(), it.getDescription().getMediaId())) {
+                        activeQueueItemId = i;
+                        break;
+                    }
+                }
+
+            }
+
         }
 
         @Override
         public void onPlay() {
             if (!isReadyToPlay()) {
-                // Nothing to play.
+//             Nothing to play.
                 return;
             }
 
             if (mPreparedMedia == null) {
-                onPrepare();
+//                onPrepare();
+                return;
             }
 
             mPlayback.playFromMedia(mPreparedMedia);
+
             Log.d(TAG, "onPlayFromMediaId: MediaSession active");
         }
 
@@ -159,16 +212,72 @@ public class MusicService extends MediaBrowserServiceCompat {
 
         @Override
         public void onSkipToNext() {
-            mQueueIndex = (++mQueueIndex % mPlaylist.size());
-            mPreparedMedia = null;
-            onPlay();
+//            mQueueIndex = (++mQueueIndex % mPlaylist.size());
+//            mPreparedMedia = null;
+//            onPlay();
+            if (queueItems != null && nowPlaying != null) {
+
+                int nextItemPos = activeQueueItemId;
+                if (activeQueueItemId >= queueItems.size() - 1) {
+                    nextItemPos = 0;
+                } else {
+                    nextItemPos++;
+                }
+
+                MediaBrowserCompat.MediaItem nextMediaItem = new MediaBrowserCompat.MediaItem(
+                        queueItems.get(nextItemPos).getDescription(),
+                        0);
+
+                mPreparedMedia = new MediaMetadataCompat.Builder()
+                        .putString(MediaMetadataCompat.METADATA_KEY_MEDIA_ID, nextMediaItem.getDescription().getMediaId())
+                        .putString(MediaMetadataCompat.METADATA_KEY_ALBUM, nextMediaItem.getDescription().getSubtitle().toString())
+                        .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, nextMediaItem.getDescription().getSubtitle().toString())
+//                        .putLong(MediaMetadataCompat.METADATA_KEY_DURATION, TimeUnit.MILLISECONDS.convert(duration, durationUnit))
+//                        .putString(MediaMetadataCompat.METADATA_KEY_GENRE, genre)
+                        .putString(MediaMetadataCompat.METADATA_KEY_ALBUM_ART_URI, nextMediaItem.getDescription().getMediaUri().toString())
+//                        .putString(MediaMetadataCompat.METADATA_KEY_DISPLAY_ICON_URI, getAlbumArtUri(albumArtResName))
+                        .putString(MediaMetadataCompat.METADATA_KEY_TITLE, nextMediaItem.getDescription().getTitle().toString())
+                        .build();
+
+                mPlayback.playFromMedia(mPreparedMedia);
+                nowPlaying = nextMediaItem;
+                activeQueueItemId = nextItemPos;
+            }
         }
 
         @Override
         public void onSkipToPrevious() {
-            mQueueIndex = mQueueIndex > 0 ? mQueueIndex - 1 : mPlaylist.size() - 1;
-            mPreparedMedia = null;
-            onPlay();
+//            mQueueIndex = mQueueIndex > 0 ? mQueueIndex - 1 : mPlaylist.size() - 1;
+//            mPreparedMedia = null;
+//            onPlay();
+            if (queueItems != null && nowPlaying != null) {
+                int previousItemPos = activeQueueItemId;
+
+                if(activeQueueItemId<=0){
+                    previousItemPos = queueItems.size() - 1;
+                }else {
+                    previousItemPos--;
+                }
+
+                MediaBrowserCompat.MediaItem nextMediaItem = new MediaBrowserCompat.MediaItem(
+                        queueItems.get(previousItemPos).getDescription(),
+                        0);
+
+                mPreparedMedia = new MediaMetadataCompat.Builder()
+                        .putString(MediaMetadataCompat.METADATA_KEY_MEDIA_ID, nextMediaItem.getDescription().getMediaId())
+                        .putString(MediaMetadataCompat.METADATA_KEY_ALBUM, nextMediaItem.getDescription().getSubtitle().toString())
+                        .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, nextMediaItem.getDescription().getSubtitle().toString())
+//                        .putLong(MediaMetadataCompat.METADATA_KEY_DURATION, TimeUnit.MILLISECONDS.convert(duration, durationUnit))
+//                        .putString(MediaMetadataCompat.METADATA_KEY_GENRE, genre)
+                        .putString(MediaMetadataCompat.METADATA_KEY_ALBUM_ART_URI, nextMediaItem.getDescription().getMediaUri().toString())
+//                        .putString(MediaMetadataCompat.METADATA_KEY_DISPLAY_ICON_URI, getAlbumArtUri(albumArtResName))
+                        .putString(MediaMetadataCompat.METADATA_KEY_TITLE, nextMediaItem.getDescription().getTitle().toString())
+                        .build();
+
+                mPlayback.playFromMedia(mPreparedMedia);
+                nowPlaying = nextMediaItem;
+                activeQueueItemId  = previousItemPos;;
+            }
         }
 
         @Override
@@ -177,7 +286,7 @@ public class MusicService extends MediaBrowserServiceCompat {
         }
 
         private boolean isReadyToPlay() {
-            return (!mPlaylist.isEmpty());
+            return (!queueItems.isEmpty());
         }
     }
 
@@ -244,4 +353,15 @@ public class MusicService extends MediaBrowserServiceCompat {
 
     }
 
+
+    MediaBrowserCompat.MediaItem findMediaItemById(String mediaId) {
+        MediaBrowserCompat.MediaItem item = null;
+        for (MediaBrowserCompat.MediaItem it : mediaItems) {
+            if (Objects.equals(mediaId, it.getDescription().getMediaId())) {
+                item = it;
+                break;
+            }
+        }
+        return item;
+    }
 }

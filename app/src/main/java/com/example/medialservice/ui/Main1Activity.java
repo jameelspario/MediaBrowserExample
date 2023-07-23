@@ -34,7 +34,6 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.example.medialservice.R;
 import com.example.medialservice.client.MediaBrowserHelper;
 import com.example.medialservice.service.MusicService;
-import com.example.medialservice.service.contentcatalogs.MusicLibrary;
 
 import java.util.List;
 
@@ -73,7 +72,7 @@ public class Main1Activity extends AppCompatActivity {
     @Override
     public void onStart() {
         super.onStart();
-        mMediaBrowserHelper.onStart();
+//        mMediaBrowserHelper.onStart();
     }
 
     @Override
@@ -111,7 +110,7 @@ public class Main1Activity extends AppCompatActivity {
     }
 
     /**
-     * Customize the connection to our {@link MediaBrowserServiceCompat}
+     * Customize the connection to our {@link }
      * and implement our app specific desires.
      */
     private class MediaBrowserConnection extends MediaBrowserHelper {
@@ -166,9 +165,9 @@ public class Main1Activity extends AppCompatActivity {
                     mediaMetadata.getString(MediaMetadataCompat.METADATA_KEY_TITLE));
             mArtistTextView.setText(
                     mediaMetadata.getString(MediaMetadataCompat.METADATA_KEY_ARTIST));
-            mAlbumArt.setImageBitmap(MusicLibrary.getAlbumBitmap(
-                    Main1Activity.this,
-                    mediaMetadata.getString(MediaMetadataCompat.METADATA_KEY_MEDIA_ID)));
+//            mAlbumArt.setImageBitmap(MusicLibrary.getAlbumBitmap(
+//                    Main1Activity.this,
+//                    mediaMetadata.getString(MediaMetadataCompat.METADATA_KEY_MEDIA_ID)));
         }
 
         @Override

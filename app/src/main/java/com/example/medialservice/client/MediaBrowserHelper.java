@@ -1,19 +1,3 @@
-/*
- * Copyright 2017 The Android Open Source Project
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package com.example.medialservice.client;
 
 import android.content.ComponentName;
@@ -45,9 +29,7 @@ public class MediaBrowserHelper {
 
     private final Context mContext;
     private final Class<? extends MediaBrowserServiceCompat> mMediaBrowserServiceClass;
-
     private final List<Callback> mCallbackList = new ArrayList<>();
-
     private final MediaBrowserConnectionCallback mMediaBrowserConnectionCallback;
     private final MediaControllerCallback mMediaControllerCallback;
     private final MediaBrowserSubscriptionCallback mMediaBrowserSubscriptionCallback;
@@ -65,9 +47,11 @@ public class MediaBrowserHelper {
         mMediaBrowserConnectionCallback = new MediaBrowserConnectionCallback();
         mMediaControllerCallback = new MediaControllerCallback();
         mMediaBrowserSubscriptionCallback = new MediaBrowserSubscriptionCallback();
+
+        onStart();
     }
 
-    public void onStart() {
+    private void onStart() {
         if (mMediaBrowser == null) {
             mMediaBrowser =
                     new MediaBrowserCompat(
@@ -199,8 +183,7 @@ public class MediaBrowserHelper {
 
                 // Sync existing MediaSession state to the UI.
                 mMediaControllerCallback.onMetadataChanged(mMediaController.getMetadata());
-                mMediaControllerCallback.onPlaybackStateChanged(
-                        mMediaController.getPlaybackState());
+                mMediaControllerCallback.onPlaybackStateChanged(mMediaController.getPlaybackState());
 
                 MediaBrowserHelper.this.onConnected(mMediaController);
             } catch (Exception e) {
@@ -239,6 +222,7 @@ public class MediaBrowserHelper {
 
         @Override
         public void onPlaybackStateChanged(@Nullable final PlaybackStateCompat state) {
+
             performOnAllCallbacks(new CallbackCommand() {
                 @Override
                 public void perform(@NonNull Callback callback) {

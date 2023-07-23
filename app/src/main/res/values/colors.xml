@@ -12,5 +12,7 @@
     <color name="colorPrimaryDark">#303F9F</color>
     <color name="colorAccent">#FF4081</color>
     <color name="notification_bg">#e91e63</color>
+    <color name="primaryDarkColor">#94A3F8</color>
+    <color name="primaryColor">#E7E7E7</color>
 
 </resources>

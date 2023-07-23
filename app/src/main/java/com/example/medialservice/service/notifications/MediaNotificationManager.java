@@ -26,8 +26,8 @@ import androidx.media.session.MediaButtonReceiver;
 
 import com.example.medialservice.R;
 import com.example.medialservice.service.MusicService;
-import com.example.medialservice.service.contentcatalogs.MusicLibrary;
 import com.example.medialservice.ui.Main1Activity;
+import com.example.medialservice.ui.PlayerActivity;
 
 
 /**
@@ -137,7 +137,7 @@ public class MediaNotificationManager {
                 .setContentTitle(description.getTitle())
                 // Subtitle - Usually Artist name.
                 .setContentText(description.getSubtitle())
-                .setLargeIcon(MusicLibrary.getAlbumBitmap(mService, description.getMediaId()))
+//                .setLargeIcon(MusicLibrary.getAlbumBitmap(mService, description.getMediaId()))
                 // When notification is deleted (when playback is paused and notification can be
                 // deleted) fire MediaButtonPendingIntent with ACTION_STOP.
                 .setDeleteIntent(MediaButtonReceiver.buildMediaButtonPendingIntent(
@@ -191,7 +191,7 @@ public class MediaNotificationManager {
     }
 
     private PendingIntent createContentIntent() {
-        Intent openUI = new Intent(mService, Main1Activity.class);
+        Intent openUI = new Intent(mService, PlayerActivity.class);
         openUI.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
         return PendingIntent.getActivity(
                 mService, REQUEST_CODE, openUI, PendingIntent.FLAG_MUTABLE);
